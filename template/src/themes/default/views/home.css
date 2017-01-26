@@ -1,9 +1,0 @@
-.v-home {
-  & h1 {
-    line-height: 3;
-  }
-
-  & p {
-    line-height: 2;
-  }
-}

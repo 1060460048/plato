@@ -3,15 +3,12 @@ import CopyWebpackPlugin from 'copy-webpack-plugin'
 import ExtractTextPlugin from 'extract-text-webpack-plugin'
 import HtmlWebpackPlugin from 'html-webpack-plugin'
 import FaviconsWebpackPlugin from 'favicons-webpack-plugin'
-import _debug from 'debug'
 import config, { paths } from './config'
 
 const { __DEV__, __PROD__, __TEST__ } = config.globals
-const debug = _debug('plato:webpack')
+const debug = require('debug')('PLATO:webpack')
 
 debug('Create configuration.')
-
-// https://webpack.js.org/how-to/upgrade-from-webpack-1/
 
 const webpackConfig = {
   target: 'web',
@@ -19,7 +16,10 @@ const webpackConfig = {
     modules: [paths.src(), 'node_modules'],
     extensions: ['.css', '.js', '.json', '.vue'],
     alias: {
-      styles: paths.src(`themes/${config.theme}`)
+      components: 'plato-components',
+      directives: 'plato-directives',
+      system: 'plato-system',
+      util: 'plato-util'
     }
   },
   node: {
@@ -31,20 +31,20 @@ const webpackConfig = {
     host: config.server_host,
     port: config.server_port,
     // proxy is useful for debugging
-    proxy: [{
-      context: '/api',
-      target: 'http://localhost:3001',
-      pathRewrite: {
-        '^/api': '' // Host path & target path conversion
-      }
-    }],
+    // proxy: [{
+    //   context: '/api',
+    //   target: 'http://localhost:3001',
+    //   pathRewrite: {
+    //     '^/api': '' // Host path & target path conversion
+    //   }
+    // }],
     compress: true,
     hot: true,
     noInfo: true
   },
   entry: {
     app: [
-      // load the specific polyfills
+      // 加载 polyfills
       paths.src('polyfills/index.js'),
       paths.src('index.js')],
     vendor: config.compiler_vendor
@@ -55,12 +55,15 @@ const webpackConfig = {
     filename: `[name].[${config.compiler_hash_type}].js`,
     chunkFilename: `[id].[${config.compiler_hash_type}].js`
   },
+  performance: {
+    hints: __PROD__ ? 'warning' : false
+  },
   module: {
     rules: [
       {
         test: /\.(js|vue)$/,
         exclude: /node_modules/,
-        loader: 'eslint',
+        loader: 'eslint-loader',
         options: {
           emitWarning: __DEV__,
           formatter: require('eslint-friendly-formatter')
@@ -69,42 +72,38 @@ const webpackConfig = {
       },
       {
         test: /\.vue$/,
-        loader: 'vue',
+        loader: 'vue-loader',
         options: {
           loaders: {
             css: __PROD__ ? ExtractTextPlugin.extract({
-              loader: 'css?sourceMap',
-              fallbackLoader: 'vue-style'
-            }) : 'vue-style!css?sourceMap',
-            js: 'babel'
+              loader: 'css-loader?sourceMap',
+              fallbackLoader: 'vue-style-loader'
+            }) : 'vue-style-loader!css-loader?sourceMap',
+            js: 'babel-loader'
           }
         }
       },
       {
         test: /\.js$/,
-        exclude: /node_modules/,
-        loader: 'babel'
-      },
-      {
-        test: /\.json$/,
-        loader: 'json'
+        // util、components、directives、system 模块需要 babel 处理
+        exclude: /node_modules[/\\](?!plato-)/,
+        loader: 'babel-loader'
       },
       {
         test: /\.html$/,
-        loader: 'vue-html'
+        loader: 'vue-html-loader'
       },
       {
         test: /@[1-3]x\S*\.(png|jpg|gif)(\?.*)?$/,
-        loader: 'file',
+        loader: 'file-loader',
         options: {
           name: '[name].[ext]?[hash:7]'
         }
       },
       {
         test: /\.(png|jpg|gif|svg|woff2?|eot|ttf)(\?.*)?$/,
-        // do NOT base64encode @1x/@2x/@3x images
-        exclude: /@[1-3]x/,
-        loader: 'url',
+        exclude: /@[1-3]x/, // skip encoding @1x/@2x/@3x images with base64
+        loader: 'url-loader',
         options: {
           limit: 10000,
           name: '[name].[ext]?[hash:7]'
@@ -114,9 +113,6 @@ const webpackConfig = {
   },
   plugins: [
     new webpack.DefinePlugin(config.globals),
-    // generate dist index.html with correct asset hash for caching.
-    // you can customize output by editing /index.html
-    // see https://github.com/ampedandwired/html-webpack-plugin
     new HtmlWebpackPlugin({
       filename: 'index.html',
       template: paths.src('index.ejs'),
@@ -131,7 +127,7 @@ const webpackConfig = {
     new CopyWebpackPlugin([{
       from: paths.src('static')
     }], {
-      // ignore: ['*.ico', '*.md']
+      ignore: ['README.md']
     })
   ]
 }
@@ -144,25 +140,50 @@ const vueLoaderOptions = {
   postcss: pack => {
     return [
       require('postcss-import')({
-        path: paths.src(`themes/${config.theme}`),
-        // use webpack context
-        addDependencyTo: pack
+        path: paths.src('application/styles')
       }),
       require('postcss-url')({
         basePath: paths.src('static')
       }),
       require('postcss-cssnext')({
         // see: https://github.com/ai/browserslist#queries
+        {{#mobile}}
         browsers: 'Android >= 4, iOS >= 7',
+        {{else}}
+        browsers: 'IE >= 9, Chrome >= 50',
+        {{/mobile}}
         features: {
           customProperties: {
-            variables: require(paths.src(`themes/${config.theme}/variables`))
+            variables: require(paths.src('application/styles/variables'))
           }
         }
       }),
       require('postcss-flexible')({
+        {{#mobile}}
+        {{else}}
+        desktop: true,
+        {{/mobile}}
         remUnit: 75
       }),
+      {{#i18n}}
+      // PostCSS plugin for RTL-optimizations
+      require('postcss-rtl')({
+        // Custom function for adding prefix to selector. Optional.
+        addPrefixToSelector (selector, prefix) {
+          if (/^html/.test(selector)) {
+            return selector.replace(/^html/, `html${prefix}`)
+          }
+          if (/:root/.test(selector)) {
+            return selector.replace(/:root/, `${prefix}:root`)
+          }
+          // compliant with postcss-flexible
+          if (/^\[data-dpr(="[1-3]")?]/.test(selector)) {
+            return `${prefix}${selector}`
+          }
+          return `${prefix} ${selector}`
+        }
+      }),
+      {{/i18n}}
       require('postcss-browser-reporter')(),
       require('postcss-reporter')()
     ]
@@ -173,7 +194,6 @@ const vueLoaderOptions = {
 if (__PROD__) {
   debug('Enable plugins for production (Dedupe & UglifyJS).')
   webpackConfig.plugins.push(
-    new webpack.optimize.DedupePlugin(),
     new webpack.LoaderOptionsPlugin({
       minimize: true,
       options: {
@@ -196,7 +216,7 @@ if (__PROD__) {
   debug('Enable plugins for live development (HMR, NoErrors).')
   webpackConfig.plugins.push(
     new webpack.HotModuleReplacementPlugin(),
-    new webpack.NoErrorsPlugin(),
+    new webpack.NoEmitOnErrorsPlugin(),
     new webpack.LoaderOptionsPlugin({
       debug: true,
       options: {
@@ -213,6 +233,7 @@ if (!__TEST__) {
     new FaviconsWebpackPlugin({
       logo: paths.src('assets/logo.svg'),
       prefix: 'icons-[hash:7]/',
+      {{#mobile}}
       icons: {
         android: true,
         appleIcon: true,
@@ -225,10 +246,24 @@ if (!__TEST__) {
         yandex: false,
         windows: false
       }
+      {{else}}
+      icons: {
+        android: false,
+        appleIcon: false,
+        appleStartup: false,
+        coast: false,
+        favicons: true,
+        firefox: true,
+        opengraph: false,
+        twitter: false,
+        yandex: false,
+        windows: true
+      }
+      {{/mobile}}
     }),
     new webpack.optimize.CommonsChunkPlugin({
       name: 'vendor',
-      filename: 'common.js'
+      filename: '[name].[hash].js'
     })
   )
 }
