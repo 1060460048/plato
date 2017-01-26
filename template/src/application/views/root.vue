@@ -10,9 +10,5 @@
   </div>
 </template>
 
-<script>
-// ...
-</script>
-
 <style src="../styles/app"></style>
 <style src="../styles/reddot"></style>

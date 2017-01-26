@@ -21,3 +21,4 @@ export default ({ name, version }, options = {}) => {
   })
 
   // 不返回任何值
+}
