@@ -3,7 +3,7 @@
 ## 目录
 
 1. [优先使用 ES6/7 语法](#user-content-优先使用-es-67-语法)
-1. [不使用 `$broadcast` 与 `$dispatch`](#user-content-不使用-broadcast-与-dispatch)
+1. <del>[不使用 `$broadcast` 与 `$dispatch`](#user-content-不使用-broadcast-与-dispatch)</del>
 1. [尽量使用单向绑定](#user-content-尽量使用单向绑定)
 1. [数据初始化](#user-content-数据初始化)
 1. [Watch 的范围应尽量小](#user-content-watch-的范围应尽量小)
@@ -13,9 +13,11 @@
 1. [可复用组件应定义清晰的公开接口](#user-content-可复用组件应定义清晰的公开接口)
 1. [模板的顶级元素始终是单个元素](#user-content-模板的顶级元素始终是单个元素)
 1. [Props 是只读的](#user-content-props-是只读的)
+1. [避免使用函数作为组件 Props](#user-content-避免使用函数作为组件-props)
 1. [使用简写语法](#user-content-使用简写语法)
 1. [遵循组合优于继承的原则](#user-content-遵循组合优于继承的原则)
 1. [使用 normalizr 优化数据](#user-content-使用-normalizr-优化数据)
+1. [避免滥用响应式](#避免滥用响应式)
 
 ## 优先使用 ES 6/7 语法
 
@@ -42,7 +44,7 @@ const baz = 'baz'
 
 ## 不使用 `$broadcast` 与 `$dispatch`
 
-  - 跨多级传递数据会降低可维护性，应尽量避免
+  - 跨多级传递数据会降低可维护性，应尽量避免（多级数据传递，可考虑采用 Vuex 进行统一的数据中心管理）
   - vue@2.x 已经不支持 $broadcast 与 $dispatch方法，基于 vue@1.x 的项目，应考虑未来可以更平缓地升级
   - 必要时使用逐级向上 `$emit` 来实现 `$dispatch` 的效果
 
@@ -62,7 +64,7 @@ const baz = 'baz'
 
 ```html
 <div id="demo">
-<p v-class="green: validation.valid">{{message}}</p>
+<p :class="green: validation.valid">{{message}}</p>
 <input v-model="message">
 </div>
 ```
@@ -88,7 +90,7 @@ new Vue({
 
 ## Watch 的范围应尽量小
 
-  - 更直接，更明确，以及更好地利用 vue 的响应系统
+  - 更直接，更明确，以及更好地利用 Vue 的响应系统
 
 ```js
 // .vue
@@ -278,6 +280,11 @@ export default {
 </script>
 ```
 
+## 避免使用函数作为组件 Props
+
+  - Props 应该用来传递简单的数据类型
+  - 避免将函数作为 Props，比如设计对话框时，不应将点击回调通过 Props 来实现，而应该通过事件来实现
+
 ## 使用简写语法
 
   - 总是使用简写语法，使用 `:attr` 替代 `v-bind:attr`，使用 `@event` 替代 `v-on:event`
@@ -301,4 +308,8 @@ export default {
 
 ## 使用 normalizr 优化数据
 
-  - 对于大型项目，应考虑使用 [normalizr](https://github.com/paularmstrong/normalizr) 优化数据，或简单地使用 `utils/normalizer`
+  - 对于大型项目，应考虑使用 [normalizr](https://github.com/paularmstrong/normalizr) 优化数据，或简单地使用 `src/application/utils/normalizer`
+
+## 避免滥用响应式
+
+  - 如果数据是不需要响应式的，就不要在 data 里定义
