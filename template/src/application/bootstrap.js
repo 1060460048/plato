@@ -1,5 +1,6 @@
 import { configure, use, run } from 'system'
 
+import logger from 'modules/logger'
 {{#persist}}
 import persist from 'modules/persist'
 {{/persist}}
@@ -34,6 +35,11 @@ configure({
  */
 
 /**
+ * 调试相关
+ */
+__DEV__ && use(logger)
+
+/**
  * 被依赖的模块，移除可能会影响部分功能
  */
 {{#persist}}
@@ -57,7 +63,7 @@ use(validator)
 // use(zzz, { prefix: 'zzz' })
 
 /**
- * 核心模块，不能移除
+ * 核心模块，路由与鉴权
  */
 use(core)
 
